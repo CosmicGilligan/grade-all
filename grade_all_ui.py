@@ -6,7 +6,7 @@ import os
 import time
 
 client=openai
-
+client.api_key = "sk-xxxx" # Replace with your key
 
 # Get various user information
 uid = os.getuid()  # Get the effective user ID 
