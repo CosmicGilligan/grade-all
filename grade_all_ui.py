@@ -4,6 +4,7 @@ import openai
 import csv
 import os
 import time
+from create_xlsx import create_xlsx
 
 client=openai
 client.api_key = "sk-xxxx" # Replace with your key
@@ -11,9 +12,6 @@ client.api_key = "sk-xxxx" # Replace with your key
 # Get various user information
 uid = os.getuid()  # Get the effective user ID 
 username = os.getlogin()  # Get the login name of the current user
-
-print(f"Effective User ID: {uid}")
-print(f"Username: {username}")
 
 # Title for your app
 st.markdown("## Professor Cosmic's Magic Lecture Grader")
@@ -95,8 +93,9 @@ def do_some_work():
         f.close()
     # Brief pause (if it helps)
     time.sleep(0.5)  
+    create_xlsx(filename)
 
-    os.system("wps ./submissions/completions.csv")
+    os.system("wps ./submissions/completions.xlsx &")
 
 # Button to start the work simulation
 if st.button("Start"):

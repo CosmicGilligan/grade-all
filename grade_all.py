@@ -1,7 +1,7 @@
 from operator import itemgetter
 #from wa_html import queryBot
 import openai
-import gradio as gr
+#import gradio as gr
 import os
 from operator import itemgetter
 import pandas as pd
@@ -11,8 +11,7 @@ from ast import literal_eval
 from scipy.spatial.distance import cosine
 import os
 from bs4 import BeautifulSoup
-import csv
-import sys
+#import sys
 
 client=openai
 
@@ -74,7 +73,6 @@ def makeEntryList():
                 thisEntry.append("\n")
                 entryList.append(thisEntry)
     return entryList
-
 
 # search embedded docs based on cosine similarity
 
@@ -183,7 +181,6 @@ def remove_newlines(serie):
     serie = serie.str.replace('  ', ' ')
     return serie
 
-
 # Create a dataframe from the list of texts
 def createDataframe():
     global shortened
@@ -231,7 +228,6 @@ def createDataframe():
 #    df['embeddings'] = df.text.apply(lambda x: client.embeddings.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
     df['embeddings'] = df.text.apply(lambda x: client.embeddings.create(input = x, model='text-embedding-ada-002').data[0].embedding)
                                                
-
     df.to_csv('tokens.csv')
     df.head()
 
@@ -327,6 +323,7 @@ def crawl():
 model="US1"
 sStr=""
 
+"""
 def rs1_change(c):
     global sStr
     sStr=c
@@ -351,14 +348,14 @@ def model_change(value):
 
 def progress_bar(progress, total):
     length=40
-    """
+    
     Displays a simple text-based progress bar.
 
     Args:
         progress (int): Current progress.
         total (int): Total number of steps.
         length (int): Length of the progress bar in characters.
-    """
+
     percent = progress / float(total) * 100
     filled_length = int(length * percent // 100)
     bar = '█' * filled_length + '-' * (length - filled_length)
@@ -367,6 +364,7 @@ def progress_bar(progress, total):
     sys.stdout.write(progressStr)
     sys.stdout.flush()  # Ensure the text is displayed 
     return progressStr
+"""
 
 def getPromptStr(course,base):
     print("Begin grading completions...\n")
@@ -405,7 +403,7 @@ def getPromptStr(course,base):
 
     promptStr=prompt1+" "+lecStr+" "+prompt2+" "+qStr+"\n"
     return(promptStr)
-
+"""
 def submitPrompt(course,base):
     global domain
     global full_url
@@ -414,7 +412,6 @@ def submitPrompt(course,base):
 
     promptStr=getPromptStr(course)
 
-    
 
 def create_gradio_interface():
     global grProgressBar
@@ -462,13 +459,13 @@ def create_gradio_interface():
 #        button.click(respond, inputs=progressTxt, outputs=progressTxt)
 #        button.click(respond, inputs=None, outputs=progressTxt, _js={"inputs": ["progressTxt"], "outputs": ["progressTxt"]})
     return demo
-
+"""
 def main():
     import sys    
     crawl()
     makeEntryList()
-    interface=create_gradio_interface()
-    interface.launch()
+#    interface=create_gradio_interface()
+#    interface.launch()
     print("done")
 
 if __name__ == "__main__":
