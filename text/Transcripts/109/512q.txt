@@ -1,0 +1,5 @@
+512
+./512q.txt
+1. Who were the four Senators involved in the Compromise of 1850 and where were they from?
+2. Why would the State they were from matter?
+3. What did each Senator argue about slavery in the new territories?
