@@ -1,5 +1,6 @@
 # Automatically created by mypy
 .grade-all/
-,vscode/
+.vscode/
 .mypy_cache/
+.submissions
 __pycache__

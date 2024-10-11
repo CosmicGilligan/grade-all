@@ -14,7 +14,7 @@ import requests
 import json
 import re
 
-with open('~/canvas-secrets.txt', 'r') as file:
+with open('/home/drkeithcox/canvas-secrets.key', 'r') as file:
     # Read all lines into a list, stripping newline characters
     my_list = [line.strip() for line in file]
 
