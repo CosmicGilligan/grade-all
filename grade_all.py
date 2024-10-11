@@ -1,7 +1,4 @@
 from operator import itemgetter
-#from wa_html import queryBot
-import openai
-#import gradio as gr
 import os
 from operator import itemgetter
 import pandas as pd
@@ -9,18 +6,32 @@ import numpy as np
 import tiktoken
 from ast import literal_eval
 from scipy.spatial.distance import cosine
-import os
 from bs4 import BeautifulSoup
-#import sys
+import openai
+from docx import Document
+from pypdf import PdfReader
+import requests
+import json
+import re
+
+# Your Canvas API URL and token
+API_URL = 'https://sdccd.instructure.com/api/v1'
+API_TOKEN = '1069~JHu89fDn3RfmMLCcP87FfXENWKMfkk3B9Y4hK7PaNQf3RGtrvDMPLCECeYZZQ846'
+#course_id = '71354'  # Replace with the actual course ID
+
+# Headers for the request
+headers = {
+    'Authorization': f'Bearer {API_TOKEN}'
+}
 
 client=openai
 
-domain = "text/Transcripts/"
-subdomain109 = "text/Transcripts/109/"
-subdomain110 = "text/Transcripts/110/"
-full_url = "text/Transcripts/"
-suburl109 = "text/Transcripts/109/"
-suburl110 = "text/Transcripts/110/"
+domain = "../db/Transcripts/"
+subdomain109 = "../db/Transcripts/109/"
+subdomain110 = "../db/Transcripts/110/"
+full_url = "../db/Transcripts/"
+suburl109 = "../db/Transcripts/109"
+suburl110 = "../db/Transcripts/110"
 max_tokens = 500
 lecStrList = []
 shortened = []
@@ -28,13 +39,14 @@ df = []
 df_embeddings = []
 df_similarities = []
 prmtTitleList=[]
-qFileList=[]
+qFileList109=[]
+qFileList110=[]
 US1List=[]
 US2List=[]
 gradeMode=True
 examMode=False
 directory = './submissions/'
-entryList=[]
+
 
 def extract_content(html_content):
     # Parse the HTML content
@@ -57,21 +69,131 @@ def extract_content(html_content):
     
     return name, extracted_text
 
-def makeEntryList():
+def read_docx(file_path):
+    doc = Document(file_path)
+    full_text = []
+
+    for para in doc.paragraphs:
+        full_text.append(para.text)
+
+    newText = '\n'.join(full_text)
+    text=newText.replace('\n', ' ')   
+    return text
+#    doc = doc = aw.Document(file_path)
+#    return doc
+
+def read_pdf(file_path):
+    # creating a pdf reader object 
+    reader = PdfReader(file_path) 
+    
+    text = ""
+    for page_num in range(len(reader.pages)):
+        page = reader.pages[page_num]
+        newText = page.extract_text()
+        text+=newText.replace('\n', ' ')   
+    return text
+
+def read_file_content(file_path):
+    if file_path.endswith('.docx'):
+        return read_docx(file_path)
+    elif file_path.endswith('.pdf'):
+        return read_pdf(file_path)
+    else:
+        raise ValueError("Unsupported file format. Please use .docx or .pdf files.")
+    
+def getCanvasAPI(url):  
+    params = {
+        'per_page': 10000  # Setting the item count to 10 per page
+    }
+
+    # Make the GET request to retrieve courses
+    response = requests.get(url, headers=headers)
+    results = []
+    while url and len(results) < 20:
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                raise Exception(f"API request failed with status code {response.status_code}")
+            results.extend(response.json())
+            # Check if there is a next page
+            url = response.links.get('next', {}).get('url')
+    #return results[:max_items]
+
+    if response.status_code == 200:
+        return results
+    else:
+        print(f"API request failed with status code {response.status_code}")
+        return None
+
+def getUserList(crn):
+    # URL for listing all courses with additional parameters
+    url = f'{API_URL}/courses/'+crn+'/users'
+    students=getCanvasAPI(url)
+    
+    # Create a dictionary to map IDs to names
+    id_to_name = {student['id']: student['name'] for student in students}
+
+    # Directory containing the files
+    directory = './submissions/'
+
+    # List to store the name, filename pairs
+    name_file_pairs = []
+
+    # List all files in the directory
+    files = os.listdir(directory)
+
+    # Regular expression to extract ID from filename
+    pattern = re.compile(r'_(\d+)_')
+
+    for filename in files:
+        match = pattern.search(filename)
+        if match:
+            student_id = int(match.group(1))
+            if student_id in id_to_name:
+                name_file_pairs.append((id_to_name[student_id], filename))
+
+    # Print the result
+    for name, filename in name_file_pairs:
+        print(f'Name: {name}, Filename: {filename}')
+    return name_file_pairs
+
+def makeEntryList(crn):
+    entryList = []
+    userList = []
+    gotUsers=False
+
     for filename in os.listdir(directory):
-        if filename.endswith('.html'):
+        if filename.endswith(('.html', '.docx', '.pdf')):
             filepath = os.path.join(directory, filename)
-            with open(filepath, 'r', encoding='utf-8') as file:
-                thisEntry=[]
-                html_content = file.read()
-                name, text = extract_content(html_content)
-                i=name.find(":")
-                strEnd=len(name)
-                shortName=name[i+2:strEnd]
-                thisEntry.append(shortName)
-                thisEntry.append(text)
-                thisEntry.append("\n")
-                entryList.append(thisEntry)
+            
+            if filename.endswith('.html'):
+                with open(filepath, 'r', encoding='utf-8') as file:
+                    thisEntry = []
+                    html_content = file.read()
+                    name, text = extract_content(html_content)
+                    i = name.find(":")
+                    strEnd = len(name)
+                    shortName = name[i + 2:strEnd]
+                    thisEntry.append(shortName)
+                    thisEntry.append(text)
+                    thisEntry.append("\n")
+                    entryList.append(thisEntry)
+            
+            elif filename.endswith(('.pdf', '.docx')):
+                thisEntry = []
+                if gotUsers == False:
+                    userList=getUserList(crn)
+                    gotUsers=True
+                # Create the entry list
+
+                for name, filename in userList:
+                    filepath = os.path.join(directory, filename)
+                    data = read_file_content(filepath)
+                    entryList.append([name, data, None])
+
+    # Print the entry list
+    for entry in entryList:
+        print(f'Name: {entry[0]}, Data: {entry[1]}, Empty: {entry[2]}')
+
     return entryList
 
 # search embedded docs based on cosine similarity
@@ -100,41 +222,6 @@ def search_docs(df, user_query, top_n=3, to_print=True):
     if to_print:
         print(res)
     return res
-
-def askDB(question):
-    # get the standard system prompt    
-    filename=full_url+"query.prmt"
-    f=open(filename)
-    promptList=f.readlines()
-    f.close()
-    qStr=promptList[0]+" "+question+" "
-    initial_prompt = qStr
-    result = ''
-    
-    tokenizer = tiktoken.get_encoding("cl100k_base")
-    df_tok=df.copy()
-    df_tok['n_tokens'] = df['text'].apply(lambda x: len(tokenizer.encode(x)))
-
-    df_embeddings = df_tok.copy()
-    df_embeddings['ada_v2_embedding'] = df_tok.text.apply(lambda x: openai.embeddings.create(input=[x], model='text-embedding-ada-002').data[0].embedding)
-    df_similarities = df_embeddings.copy()
-
-    # search the embeddings for the most appropriate source
-
-    res = search_docs(df_embeddings, question, top_n=1)
-    ai_question = question
-    context= res.text.values    
-
-#    initial_prompt = "The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly."
-
-    combined_prompt = initial_prompt + str(context) + "Q: " + ai_question
-    completion = client.chat.completions.create(
-        model="gpt-4-0125-preview",
-        messages=[
-             {"role": "user", "content": combined_prompt}
-        ]
-    )
-    answer = completion.choices[0].message 
 
 def split_into_many(tokenizer, text, max_tokens = max_tokens):
 
@@ -188,7 +275,7 @@ def createDataframe():
     global df_embeddings
     global df_similarities
 
-    df = pd.DataFrame(lecStrList, columns = ['fname', 'text'])
+    df = pd.DataFrame(lecStrList, columns = ['fname', 'text', 'id'])
     df.to_csv('embeddings.csv')
     df.head()
 
@@ -196,7 +283,7 @@ def createDataframe():
     tokenizer = tiktoken.get_encoding("cl100k_base")
 
     df = pd.read_csv('embeddings.csv', index_col=0)
-    df.columns = ['title', 'text']
+    df.columns = ['title', 'text', 'id']
 
     # Tokenize the text and save the number of tokens to a new column
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
@@ -237,14 +324,6 @@ def createDataframe():
     df.head()
 
 def sort_by_number(string_list):
-  """Sorts a list of strings in the format 'sss: xxx' by the numeric part (xxx) in ascending order.
-
-  Args:
-      string_list: A list of strings in the format 'sss: xxx'.
-
-  Returns:
-      A new list with the strings sorted by the numeric part (xxx) in ascending order.
-  """
 
   # Function to extract the numeric part (xxx) from a string
   def get_number(text):
@@ -254,21 +333,28 @@ def sort_by_number(string_list):
   return sorted(string_list, key=get_number)
 
 def crawl():
-    ospath=os.fspath(full_url)
-    osdir=os.listdir(full_url)
+#    ospath=os.fspath(full_url)
+#    osdir=os.listdir(full_url)
     dirTree=[]
-    max_tokens = 500
-    max_len = 1800
-    shortened = []
-    local_domain = domain
-    queue=[]
-    seen=set([])
-    global qFileList
+#    max_tokens = 500
+#    max_len = 1800
+#    shortened = []
+#    local_domain = domain
+#    queue=[]
+#    seen=set([])
+    global qFileList109
+    global qFileList110
     global lecStrList
     global US1List
     global US2List
 
     for (root,dirs,files) in os.walk(domain, topdown=True): 
+        rootcrs=root.find("109")
+        if(rootcrs>=0):
+            rootdir=109
+        rootcrs=root.find("110")
+        if(rootcrs>=0):
+            rootdir=110
         dirTree.append(dirs)      
         while files:
             foundQ=False
@@ -279,7 +365,10 @@ def crawl():
                 f=open(newFile)
                 qinFileList=f.readlines()
                 f.close()
-                qFileList.append(qinFileList)
+                if(rootdir==109):
+                    qFileList109.append(qinFileList)
+                elif (rootdir==110):
+                    qFileList110.append(qinFileList)
                 foundQ=True
             x=fileList.find(".txt")
             if(( x>=0) and (foundQ==False)):
@@ -291,6 +380,7 @@ def crawl():
                 lStr=inputList[2]
                 l1Str=inputList[1].replace("\n","")
                 lnStr=l1Str+lStr[:3]
+                idnumstr=lStr[:3]
                 x=inputList[1].find("US1")
                 if(x>=0):                    
                     US1List.append(lnStr)
@@ -308,12 +398,15 @@ def crawl():
                 tlecStrList=[]
                 tlecStrList.append(titleStr)
                 tlecStrList.append(lecStr)
+                tlecStrList.append(idnumstr)
                 lecStrList.append(tlecStrList)
 
-    sorted_list=sorted(lecStrList,key=itemgetter(1))
+    sorted_list=sorted(lecStrList,key=itemgetter(2))
     lecStrList=sorted_list
-    sorted_list=sorted(qFileList,key=itemgetter(0))
-    qFileList=sorted_list
+    sorted_list=sorted(qFileList109,key=itemgetter(0))
+    qFileList109=sorted_list
+    sorted_list=sorted(qFileList110,key=itemgetter(0))
+    qFileList110=sorted_list
     sorted_list=sort_by_number(US1List)
     US1List=sorted_list
     sorted_list=sort_by_number(US2List)
@@ -323,149 +416,84 @@ def crawl():
 model="US1"
 sStr=""
 
-"""
-def rs1_change(c):
-    global sStr
-    sStr=c
-    print(sStr)
-    return(sStr)
-#    return gr.Dropdown(choices=choices[c], interactive=True) # Make it interactive as it is not by default
-
-def rs2_change(c):
-    global sStr
-    sStr=c
-    print(sStr)
-    return(sStr)
-#    return gr.Dropdown(choices=choices[c], interactive=True) # Make it interactive as it is not by default
-
-def model_change(value):
-    global model
-    if(value=="109"):
-        model="US1"
-        return
-    model="US2"
-    return
-
-def progress_bar(progress, total):
-    length=40
-    
-    Displays a simple text-based progress bar.
-
-    Args:
-        progress (int): Current progress.
-        total (int): Total number of steps.
-        length (int): Length of the progress bar in characters.
-
-    percent = progress / float(total) * 100
-    filled_length = int(length * percent // 100)
-    bar = '█' * filled_length + '-' * (length - filled_length)
-    pctStr=round(percent, 1)
-    progressStr="\rProgress: |"+bar+"| "+str(pctStr)+"%"
-    sys.stdout.write(progressStr)
-    sys.stdout.flush()  # Ensure the text is displayed 
-    return progressStr
-"""
+def getReviewPromptStr():
+    print("Begin review completions...\n")
+    filename=full_url+"rvwquery.prmt"
+    f=open(filename)
+    promptList=f.readlines()
+    f.close()
+    return promptList[0]
 
 def getPromptStr(course,base):
     print("Begin grading completions...\n")
+
+    #get the prompts
+
     filename=full_url+"query.prmt"
     f=open(filename)
     promptList=f.readlines()
     f.close()
-    basetitleStr=domain+str(course)+"/"+str(base)
-    titleStr=basetitleStr+".lec"
-    qtitleStr=basetitleStr+"q.txt"
-    filename=titleStr
-    f=open(filename)
-    lecStr=f.readline()
-    f.close()
+    prompt1=promptList[0].replace("\n"," ")
+    prompt2=promptList[1].replace("\n"," ")
+
+    #get the lecture
+
+    if(course==109):
+        courseStr="US1"
+    else:
+        courseStr="US2"
+    itemStr = "{:03}".format(base)
+    lecStr=""
+    for sublist in lecStrList:
+        x=sublist[0].find(courseStr)
+        if (x>=0):
+            y=sublist[0].find(itemStr)
+            if(y>=0):
+                lecStr=sublist[1].replace("\n"," ")
+
+    # get the question(s)
 
     baseStr=str(base)
     if course == 109:
-        rootStr=suburl109
+        qList=qFileList109
     else:
-        rootStr=suburl110
-    for x in qFileList:
-        y=x[0].find(baseStr)
-        if y>=0:
-            filename=rootStr+x[1].replace("\n","")
-            f=open(filename,"r")
-            qStrList=f.readlines()
-            f.close()
-            qLen=len(qStrList)
-            qStr=""
-            x=2
-            while x<qLen:
-                qStr=qStr+qStrList[x]
-                x+=1
-            prompt1=promptList[0]
-            prompt2=promptList[1]
+        qList=qFileList110
 
-    promptStr=prompt1+" "+lecStr+" "+prompt2+" "+qStr+"\n"
+    qStr=""
+    for sublist in qList:
+        x=sublist[0].find(itemStr)
+        if(x>=0):
+            listlen=len(sublist)
+            y=2
+            while(y<listlen):
+                nxtStr=sublist[y].replace("\n"," ")
+                qStr=qStr+nxtStr
+                y=y+1
+
+#    for x in qFileList: #This code gets the questions
+#        y=x[0].find(baseStr)
+#        if y>=0:
+#            filename=rootStr+x[1].replace("\n","")
+#            f=open(filename,"r")
+#            qStrList=f.readlines()
+#            f.close()
+#            qLen=len(qStrList)
+#            qStr=""
+#            q=2
+#            while q<qLen:
+#                qStr=qStr+qStrList[q]
+#                q+=1
+
+
+    # The main prompt, the lecture text, The instructions after the lecture, and the questions
+    # This function returns everything in the prompt except the student submission 
+    promptStr=prompt1+" "+lecStr+" "+prompt2+" "+qStr+"\n" 
     return(promptStr)
-"""
-def submitPrompt(course,base):
-    global domain
-    global full_url
-    promptList=[]
-    global progressTxt
 
-    promptStr=getPromptStr(course)
-
-
-def create_gradio_interface():
-    global grProgressBar
-    with gr.Blocks(title="Professor Cosmic's Magic Lecture Grader") as demo:    
-        gr.Markdown("# **Professor Cosmic's Magic Lecture Grader**")
-        with gr.Row():
-            mBtn=gr.Radio(choices=["109", "110"], label="Model")
-            mBtn.change(model_change, inputs=mBtn)
-            s1Box=gr.Dropdown(
-                choices=US1List, label="109 Module Section"
-            )
-            s1Box.select(fn=rs1_change, inputs=s1Box)
-            s2Box=gr.Dropdown(
-                choices=US2List, label="110 Module Section"
-            )
-            s2Box.select(fn=rs2_change, inputs=s2Box)
-
-        global progressTxt 
-        progressTxt = gr.Textbox(label="Progress", value="Select Course and Module then press button to grade.",interactive=False)  # This component will be updated
-
-        
-
-        def respond():
-            global sStr
-            global model
-            x = sStr.find("US1")
-            crsStr = "US1" if x >= 0 else "US2"
-
-            if crsStr != model:
-                gr.Warning("You have selected a lesson from a different course.")
-                return
-
-            msg = f"Begin Grading Completions: {sStr}"
-            print(msg)
-            lecStr = sStr[-3:]
-            print(lecStr)
-            crs = 110 if model == "US2" else 109
-            submitPrompt(crs, int(lecStr))  # Function to process submissions
-
-        button = gr.Button("Grade Submissions")
-        button.click(respond, inputs=[], outputs=progressTxt)  # Respond updates the Textbox based on its return
-
-
-#        progressTxt=gr.Textbox(label="Progress")
-#        button.click(respond, inputs=progressTxt, outputs=progressTxt)
-#        button.click(respond, inputs=None, outputs=progressTxt, _js={"inputs": ["progressTxt"], "outputs": ["progressTxt"]})
-    return demo
-"""
 def main():
     import sys    
     crawl()
     makeEntryList()
-#    interface=create_gradio_interface()
-#    interface.launch()
     print("done")
 
 if __name__ == "__main__":

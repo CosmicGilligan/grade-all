@@ -2,9 +2,9 @@ import pandas as pd
 import xlsxwriter
 import time
 import openpyxl
-filename='./submissions/completions.csv'
 
-def create_xlsx(filename='./submissions/completions.csv'):
+
+def create_xlsx(filename):
     # Read the CSV into a Pandas DataFrame
     df = pd.read_csv(filename, header=None, index_col=None)
 
@@ -66,6 +66,6 @@ def create_xlsx(filename='./submissions/completions.csv'):
     
     return
 
-create_xlsx(filename)
+#create_xlsx(filename)
 
 
