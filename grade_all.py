@@ -14,10 +14,12 @@ import requests
 import json
 import re
 
-# Your Canvas API URL and token
-API_URL = 'https://sdccd.instructure.com/api/v1'
-API_TOKEN = '1069~JHu89fDn3RfmMLCcP87FfXENWKMfkk3B9Y4hK7PaNQf3RGtrvDMPLCECeYZZQ846'
-#course_id = '71354'  # Replace with the actual course ID
+with open('~/canvas-secrets.txt', 'r') as file:
+    # Read all lines into a list, stripping newline characters
+    my_list = [line.strip() for line in file]
+
+API_URL=my_list[0]
+API_TOKEN=my_list[1]
 
 # Headers for the request
 headers = {

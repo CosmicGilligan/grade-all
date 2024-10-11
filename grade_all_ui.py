@@ -16,7 +16,7 @@ HIST110CRN='2473937'
 
 list3 = []
 
-with open("./openai.key", 'r') as file:
+with open("~/openai.key", 'r') as file:
     line = file.read()
 
 api_key = line.strip()
