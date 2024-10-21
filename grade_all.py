@@ -13,6 +13,7 @@ from pypdf import PdfReader
 import requests
 import json
 import re
+import chatgpt
 
 with open('/home/drkeithcox/canvas-secrets.key', 'r') as file:
     # Read all lines into a list, stripping newline characters
@@ -26,7 +27,9 @@ headers = {
     'Authorization': f'Bearer {API_TOKEN}'
 }
 
-client=openai
+# client=openai
+client=chatgpt.get_client()
+api_key=chatgpt.get_key()
 
 domain = "../db/Transcripts/"
 subdomain109 = "../db/Transcripts/109/"

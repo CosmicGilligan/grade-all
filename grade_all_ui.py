@@ -1,9 +1,10 @@
+
 import streamlit as st
 import grade_all
-import openai
 import csv
 import os
 import time
+import chatgpt
 from create_xlsx import create_xlsx
 
 CRS109=0
@@ -16,13 +17,8 @@ HIST110CRN='2473937'
 
 list3 = []
 
-with open("/home/drkeithcox/openai.key", 'r') as file:
-    line = file.read()
-
-api_key = line.strip()
-
-client=openai
-client.api_key = api_key
+client=chatgpt.get_client()
+api_key=chatgpt.get_key()
 
 # Title for your app
 st.markdown("## Professor Cosmic's Magic Grading Machine")
